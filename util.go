@@ -73,7 +73,7 @@ func pluralizeString(str string) string {
 func scanMapIntoStruct(obj interface{}, objMap map[string][]byte) error {
 	dataStruct := reflect.Indirect(reflect.ValueOf(obj))
 	if dataStruct.Kind() != reflect.Struct {
-		return errors.New("expected a pointer to a struct")
+		return errors.New("expected a pointer to a struct ")
 	}
 
 	for key, data := range objMap {
