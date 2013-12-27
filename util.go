@@ -167,6 +167,15 @@ func scanStructIntoMap(obj interface{}) (map[string]interface{}, error) {
 	return mapped, nil
 }
 
+//Get a field value by field name
+func getFieldValueByName(obj interface{}, fieldName string) (interface{}, error) {
+	dataStruct := reflect.Indirect(reflect.ValueOf(obj))
+	if dataStruct.Kind() != reflect.Struct {
+		return nil, errors.New("expected a pointer to a struct")
+	}
+	return dataStruct.FieldByName(fieldName).Interface(), nil
+}
+
 func StructName(s interface{}) string {
 	v := reflect.TypeOf(s)
 	for v.Kind() == reflect.Ptr {

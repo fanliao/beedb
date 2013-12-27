@@ -5,17 +5,17 @@ import (
 )
 
 type CacheProvider interface {
-	Get(key string) (interface{}, bool, error)
-	Set(key string, exp int, value interface{}) error
+	Get(key interface{}) (interface{}, bool, error)
+	Set(key interface{}, exp int, value interface{}) error
 }
 
 //default cache implement class
 type localCache struct {
-	cached map[string]interface{}
-	exps   map[string]time.Time
+	cached map[interface{}]interface{}
+	exps   map[interface{}]time.Time
 }
 
-func (cache localCache) Get(key string) (value interface{}, isPresent bool, err error) {
+func (cache localCache) Get(key interface{}) (value interface{}, isPresent bool, err error) {
 	value, isPresent = cache.cached[key]
 	err = nil
 	if exp, ok := cache.exps[key]; ok {
@@ -27,7 +27,7 @@ func (cache localCache) Get(key string) (value interface{}, isPresent bool, err 
 	return
 }
 
-func (cache localCache) Set(key string, exp int, value interface{}) error {
+func (cache localCache) Set(key interface{}, exp int, value interface{}) error {
 	cache.cached[key] = value
 	if exp > 0 {
 		t1 := time.Now()
@@ -39,11 +39,70 @@ func (cache localCache) Set(key string, exp int, value interface{}) error {
 }
 
 //default cacheProvider factory function
-func newLocalCache() *localCache {
+func newLocalCache() CacheProvider {
 	cache := new(localCache)
-	cache.cached = map[string]interface{}{}
-	cache.exps = map[string]time.Time{}
+	cache.cached = map[interface{}]interface{}{}
+	cache.exps = map[interface{}]time.Time{}
 	return cache
 }
 
-var cacheProvider CacheProvider = newLocalCache()
+//cache manager
+type CacheManager interface {
+	GetObj(tableName string, key interface{}) (interface{}, bool, error)
+	GetQuery(queryStrig string, args ...interface{}) (interface{}, bool, error)
+	SetObj(tableName string, key interface{}, exp int, value interface{}) error
+	SetQuery(queryStrig string, exp int, value interface{}, args ...interface{}) error
+	ClearAll() error
+	ClearObj(tableName string, key interface{}) error
+	ClearQuery(queryStrig string, args ...interface{}) error
+	SetCacheProvider(cacheProvider CacheProvider)
+}
+
+type OrmCacheManager struct {
+	cacheProvider CacheProvider
+}
+
+func (this OrmCacheManager) GetObj(tableName string, key interface{}) (interface{}, bool, error) {
+	return nil, true, nil
+}
+
+func (this OrmCacheManager) GetQuery(queryStrig string, args ...interface{}) (interface{}, bool, error) {
+	return nil, true, nil
+}
+
+func (this OrmCacheManager) SetObj(tableName string, key interface{}, exp int, value interface{}) error {
+	return nil
+}
+
+func (this OrmCacheManager) SetQuery(queryStrig string, exp int, value interface{}, args ...interface{}) error {
+	return nil
+}
+
+func (this OrmCacheManager) ClearAll() error {
+	return nil
+}
+
+func (this OrmCacheManager) ClearObj(tableName string, key interface{}) error {
+	return nil
+}
+
+func (this OrmCacheManager) ClearQuery(queryStrig string, args ...interface{}) error {
+	return nil
+}
+
+func (this OrmCacheManager) SetCacheProvider(cacheProvider CacheProvider) {
+	this.cacheProvider = cacheProvider
+}
+
+func NewOrmCacheManager(cacheProvider CacheProvider) *OrmCacheManager {
+	ormCacheManager := new(OrmCacheManager)
+	ormCacheManager.SetCacheProvider(cacheProvider)
+	return ormCacheManager
+}
+
+var globalCacheProvider CacheProvider = newLocalCache()
+var globalCacheManager CacheManager = NewOrmCacheManager(globalCacheProvider)
+
+func hash(args ...interface{}) int32 {
+
+}

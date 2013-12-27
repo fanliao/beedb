@@ -14,25 +14,28 @@ var OnDebug = false
 var PluralizeTableNames = false
 
 type Model struct {
-	Db              *sql.DB
-	TableName       string
-	LimitStr        int
-	OffsetStr       int
-	WhereStr        string
-	ParamStr        []interface{}
-	OrderStr        string
-	ColumnStr       string
-	PrimaryKey      string
-	JoinStr         string
-	GroupByStr      string
-	HavingStr       string
-	QuoteIdentifier string
-	ParamIdentifier string
-	ParamIteration  int
+	Db                *sql.DB
+	TableName         string
+	LimitStr          int
+	OffsetStr         int
+	WhereStr          string
+	ParamStr          []interface{}
+	OrderStr          string
+	ColumnStr         string
+	PrimaryKey        string
+	JoinStr           string
+	GroupByStr        string
+	HavingStr         string
+	QuoteIdentifier   string
+	ParamIdentifier   string
+	ParamIteration    int
+	CacheProvider     CacheProvider
+	QueryId           interface{}
+	QueryByPrimaryKey bool
 }
 
 /**
- * Add New sql.DB in the future i will add ConnectionPool.Get() 
+ * Add New sql.DB in the future i will add ConnectionPool.Get()
  */
 func New(db *sql.DB, options ...interface{}) (m Model) {
 	if len(options) == 0 {
@@ -42,6 +45,8 @@ func New(db *sql.DB, options ...interface{}) (m Model) {
 	} else if options[0] == "mssql" {
 		m = Model{Db: db, ColumnStr: "id", PrimaryKey: "id", QuoteIdentifier: "", ParamIdentifier: options[0].(string), ParamIteration: 1}
 	}
+	//init first level cache
+	m.CacheProvider = newLocalCache()
 	return
 }
 
@@ -67,6 +72,9 @@ func (orm *Model) Where(querystring interface{}, args ...interface{}) *Model {
 			orm.ParamIteration++
 		}
 		args = append(args, querystring)
+		//if query by primary key, will get obj from cache first
+		orm.QueryByPrimaryKey = true
+		orm.QueryId = querystring
 	}
 	orm.ParamStr = args
 	return orm
@@ -170,6 +178,11 @@ func (orm *Model) Find(output interface{}) error {
 		if err != nil {
 			return err
 		}
+
+		//add obj to cache
+		id, err := getFieldValueByName(output, orm.PrimaryKey)
+		orm.CacheProvider.Set(id, 0, output)
+
 	} else {
 		return errors.New("More than one record")
 	}
@@ -213,6 +226,10 @@ func (orm *Model) FindAll(rowsSlicePtr interface{}) error {
 			return err
 		}
 		sliceValue.Set(reflect.Append(sliceValue, reflect.Indirect(reflect.ValueOf(newValue.Interface()))))
+
+		//add obj to cache
+		id, err := getFieldValueByName(newValue.Interface(), orm.PrimaryKey)
+		orm.CacheProvider.Set(id, 0, newValue.Interface())
 	}
 	return nil
 }
@@ -275,15 +292,15 @@ func (orm *Model) FindMap() (resultsSlice []map[string][]byte, err error) {
 			case reflect.String:
 				str = vv.String()
 				result[key] = []byte(str)
-			//时间类型	
+			//时间类型
 			case reflect.Struct:
 				str = rawValue.Interface().(time.Time).Format("2006-01-02 15:04:05.000 -0700")
 				result[key] = []byte(str)
 			case reflect.Bool:
-				if (vv.Bool()) {
-				  result[key] = []byte("1")
+				if vv.Bool() {
+					result[key] = []byte("1")
 				} else {
-				  result[key] = []byte("0")
+					result[key] = []byte("0")
 				}
 			}
 		}
@@ -667,4 +684,7 @@ func (orm *Model) InitModel() {
 	orm.GroupByStr = ""
 	orm.HavingStr = ""
 	orm.ParamIteration = 1
+	//reset query by primary key flag
+	orm.QueryByPrimaryKey = false
+	orm.QueryId = 0
 }
